@@ -35,14 +35,65 @@ namespace lucenenet.V1
             attributeSource.AddAttributeImpl(new SourceAttribute());
 
             var tokenizer = new RussianLetterTokenizer(attributeSource, reader);
-            var lowercaseFilter = new LowerCaseFilter(tokenizer);
-            var stopWordFilter1 = new StopFilter(false, lowercaseFilter, StopWords);
+            var lowerCaseFilter = new LowerCaseFilter(tokenizer);
+            var goodWoarsFilter = new GoodWordsFilter(lowerCaseFilter);
+            var stopWordFilter1 = new StopFilter(false, goodWoarsFilter, StopWords);
             var preFilter = new PreFilter(stopWordFilter1, SpellChecker, NumberOfSuggestions);
             var stopWordFilter2 = new StopFilter(false, preFilter, StopWords);
             var stemFilter = new StemFilter(stopWordFilter2);
             var similarFilter = new SimilarFilter(stemFilter);
 
             return similarFilter;
+        }
+    }
+
+    class GoodWordsFilter : TokenFilter
+    {
+        static private HashSet<char> _goodChars;
+        static private string _goodCharsStr = "абвгдеёжзийклмнопрстуфхцчшщьыъэя-";
+
+        static GoodWordsFilter()
+        {
+            _goodChars = new HashSet<char>(_goodCharsStr.ToCharArray());
+        }
+
+        public GoodWordsFilter(TokenStream in_Renamed)
+            : base(in_Renamed)
+        {
+
+        }
+
+        public override bool IncrementToken()
+        {
+            bool wasGoodWord = false;
+            ITermAttribute termAttribute = null;
+            string term = null;
+
+            while (!wasGoodWord)
+            {
+                if (!input.IncrementToken())
+                {
+                    return false;
+                }
+
+                termAttribute = GetAttribute<ITermAttribute>();
+                
+                term = termAttribute.Term.Replace('ё', 'е');
+
+                var termArr = term.ToCharArray();
+
+                if (termArr.Length < 3) continue;
+
+                wasGoodWord = true;
+
+                for (int i = 0; i < termArr.Length; ++i)
+                    if (!_goodChars.Contains(termArr[i])) wasGoodWord = false;
+
+            }
+
+            termAttribute.SetTermBuffer(term);
+
+            return true;
         }
     }
 

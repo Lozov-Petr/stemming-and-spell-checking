@@ -63,11 +63,11 @@ namespace lucenenet
         static void MainV2()
         {
             var numberOfSuggestion = 100;
-            
-            var testFilePath = @"C:/lucene/test1.txt";
-            var testDictionaryPath = @"C:/lucene/ruStem.dict";
-            var testIndexPath = @"C:/lucene/indexV2";
-            var stopWordsPath = @"C:/lucene/stopWords.txt";
+
+            var testFilePath = @"../../../data/test1.txt";
+            var testDictionaryPath = @"../../../data/ruStem.dict";
+            var testIndexPath = @"../../../data/indexV2";
+            var stopWordsPath = @"../../../data/stopWords.txt";
 
             var stopWordsSet = new HashSet<string>();
             using (var reader = new StreamReader(stopWordsPath))
@@ -148,8 +148,8 @@ namespace lucenenet
 
         static void SupportMain()
         {
-            var testDictionaryPath = @"C:/lucene/ru.dict";
-            var outputDictionaryPath = @"C:/lucene/ruStem.dict";
+            var testDictionaryPath = @"../../../data/ru.dict";
+            var outputDictionaryPath = @"../../../data/ruStem.dict";
 
             using (var reader = new StreamReader(testDictionaryPath))
             using (var writer = new StreamWriter(outputDictionaryPath))
