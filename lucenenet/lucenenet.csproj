@@ -79,7 +79,6 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="CustomFilter.cs" />
     <Compile Include="StemmerCompareAnalyzerV1.cs" />
     <Compile Include="StemmerCompareAnalyzerV2.cs" />
   </ItemGroup>
