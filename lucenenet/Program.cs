@@ -11,6 +11,7 @@ using System.Linq;
 using ISourceAttribute = lucenenet.V1.ISourceAttribute;
 
 using lucenenet.V1;
+using System.Globalization;
 
 namespace lucenenet
 {
@@ -18,88 +19,11 @@ namespace lucenenet
     {
         static void Main()
         {
-            //MainV1_2();
+            //PrivateMain();
             SortOutput();
         }
-
-        static void MainV1()
-        {
-            var numberOfSuggestion = 100;
-
-            var testFilePath = @"C:/lucene/test1.txt";
-            var testDictionaryPath = @"C:/lucene/ru.dict";
-            var testIndexPath = @"C:/lucene/indexV1";
-            var stopWordsPath = @"C:/lucene/stopWords.txt";
-
-            var stopWordsSet = new HashSet<string>();
-            using (var reader = new StreamReader(stopWordsPath))
-            {
-                while (!reader.EndOfStream) stopWordsSet.Add(reader.ReadLine());
-            }
-
-            using (var reader = new StreamReader(testFilePath))
-            {
-                var directory = new SimpleFSDirectory(new DirectoryInfo(testIndexPath));
-                var spellChecker = new SpellChecker.Net.Search.Spell.SpellChecker(directory);
-                spellChecker.IndexDictionary(new PlainTextDictionary(new FileInfo(testDictionaryPath)));
-
-                StringDistance getDist = spellChecker.GetStringDistance();
-
-                var analyzer = new StemmerCompareAnalyzer(stopWordsSet, spellChecker, numberOfSuggestion);
-
-                var stream = analyzer.TokenStream(null, reader);
-
-                while (stream.IncrementToken())
-                {
-                    var sourceAttribute = stream.GetAttribute<ISourceAttribute>().Term;
-                    var spellAttribute = stream.GetAttribute<ISpellAttribute>().Term;
-                    var stemAttribute = stream.GetAttribute<IStemAttribute>().Term;
-
-                    Console.WriteLine("{0, 20} {1, 20} {2, 20}", sourceAttribute, spellAttribute, stemAttribute);
-                }
-            }
-        }
-
-        static void MainV2()
-        {
-            var numberOfSuggestion = 100;
-
-            var testFilePath = @"../../../data/test1.txt";
-            var testDictionaryPath = @"../../../data/ruStem.dict";
-            var testIndexPath = @"../../../data/indexV2";
-            var stopWordsPath = @"../../../data/stopWords.txt";
-
-            var stopWordsSet = new HashSet<string>();
-            using (var reader = new StreamReader(stopWordsPath))
-            {
-                while (!reader.EndOfStream) stopWordsSet.Add(reader.ReadLine());
-            }
-
-            using (var reader = new StreamReader(testFilePath))
-            {
-                var directory = new SimpleFSDirectory(new DirectoryInfo(testIndexPath));
-                var spellChecker = new SpellChecker.Net.Search.Spell.SpellChecker(directory);
-                spellChecker.IndexDictionary(new PlainTextDictionary(new FileInfo(testDictionaryPath)));
-
-                StringDistance getDist = spellChecker.GetStringDistance();
-                
-                var analyzer = new StemmerCompareAnalyzer(stopWordsSet, spellChecker, numberOfSuggestion);
-
-                var stream = analyzer.TokenStream(null, reader);
-
-                while (stream.IncrementToken())
-                {
-                    var termAttribute = stream.GetAttribute<ITermAttribute>().Term;
-                    var spellAttribute = stream.GetAttribute<ISpellAttribute>().Term;
-                    var stemAttribute = stream.GetAttribute<IStemAttribute>().Term;
-
-                    Console.WriteLine("{0, 20} {1, 20} {2, 20}", termAttribute, spellAttribute, stemAttribute);
-                }
-
-            }
-        }
-
-        static void MainV1_2()
+    
+        static void PrivateMain()
         {
             var numberOfSuggestion = 100;
 
@@ -121,27 +45,31 @@ namespace lucenenet
                 Environment.Exit(1);
             }
 
-            using (var reader = new StreamReader(testFilePath))
+            using (var reader1 = new StreamReader(testFilePath))
+            using (var reader2 = new StreamReader(testFilePath))
+            using (var writer = new StreamWriter(outputFilePath))
             {
-                using (var writer = new StreamWriter(outputFilePath))
+                var directory = new SimpleFSDirectory(new DirectoryInfo(testIndexPath));
+                var spellChecker = new SpellChecker.Net.Search.Spell.SpellChecker(directory);
+                spellChecker.IndexDictionary(new PlainTextDictionary(new FileInfo(testDictionaryPath)));
+
+                var corpusDictionaryAnalyzer = new CorpusDictionaryAnalyzer();
+                var corpusDictionary = corpusDictionaryAnalyzer.GetCorpusDictionary(reader1);
+
+                var analyzer = new StemmerCompareAnalyzer(stopWordsSet, spellChecker, numberOfSuggestion, corpusDictionary);
+
+                var stream = analyzer.TokenStream(null, reader2);
+
+                while (stream.IncrementToken())
                 {
-                    var directory = new SimpleFSDirectory(new DirectoryInfo(testIndexPath));
-                    var spellChecker = new SpellChecker.Net.Search.Spell.SpellChecker(directory);
-                    spellChecker.IndexDictionary(new PlainTextDictionary(new FileInfo(testDictionaryPath)));
+                    var source = stream.GetAttribute<ISourceAttribute>().Term;
+                    var spellAndStem = stream.GetAttribute<ISpellAndStemAttribute>().Term;
+                    var stem = stream.GetAttribute<IStemAttribute>().Term;
+                    var spell = stream.GetAttribute<ISpellAttribute>().Term;
+                    var confidence = stream.GetAttribute<IConfidenceAttribute>().Confidence;
 
-                    var analyzer = new StemmerCompareAnalyzer(stopWordsSet, spellChecker, numberOfSuggestion);
-
-                    var stream = analyzer.TokenStream(null, reader);
-
-                    while (stream.IncrementToken())
-                    {
-                        var sourceAttribute = stream.GetAttribute<ISourceAttribute>().Term;
-                        var spellAttribute = stream.GetAttribute<ISpellAttribute>().Term;
-                        var stemAttribute = stream.GetAttribute<IStemAttribute>().Term;
-
-                        writer.WriteLine("{0, 20} {1, 20} {2, 20}", sourceAttribute, spellAttribute, stemAttribute);
-                        //Console.WriteLine("{0, 20} {1, 20} {2, 20}", sourceAttribute, spellAttribute, stemAttribute);
-                    }
+                    writer.WriteLine("{0, -20} {1, -20} {2, -20} {3, -20}  {4}", source, spell, stem, spellAndStem, confidence.ToString("F2"));
+                    Console.WriteLine("{0, -20} {1, -20} {2, -20} {3, -20}  {4}", source, spell, stem, spellAndStem, confidence.ToString("F2"));
                 }
             }
         }
@@ -173,6 +101,9 @@ namespace lucenenet
         static void SortOutput()
         {
             var outputFilePath = @"..\..\..\data\output.txt";
+            var oneCorrectionFilePath = @"..\..\..\data\oneCorrection.txt";
+            var twoCorrectionsFilePath = @"..\..\..\data\twoCorrections.txt";
+            var restFilePath = @"..\..\..\data\rest.txt";
             var resultFilePath = @"..\..\..\data\result.txt";
             var replacements = new Dictionary<string, int>();
 
@@ -193,14 +124,24 @@ namespace lucenenet
                 }
             }
 
-            using (var writer = new StreamWriter(resultFilePath))
-            {
-                var result = from entry in replacements orderby entry.Value descending select entry;
+            var result = from entry in replacements orderby entry.Value descending select entry;
 
-                foreach (var entry in result)
-                {
-                    writer.WriteLine("{0} {1}", entry.Key, entry.Value);
-                }
+            using (var oneCorrectionWriter = new StreamWriter(oneCorrectionFilePath))
+            using (var twoCorrectionsWriter = new StreamWriter(twoCorrectionsFilePath))
+            using (var restWriter = new StreamWriter(restFilePath))
+            using (var resultWriter = new StreamWriter(resultFilePath))
+            foreach (var entry in result)
+            {
+                resultWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
+
+                var confidence = double.Parse(entry.Key.Substring(entry.Key.Length - 4, 4), CultureInfo.CurrentCulture);
+                
+                if (confidence == 1)
+                    oneCorrectionWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
+                else if (confidence == 0.99)
+                    twoCorrectionsWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
+                else
+                    restWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
             }
         }
     }
