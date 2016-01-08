@@ -68,8 +68,8 @@ namespace lucenenet
                     var spell = stream.GetAttribute<ISpellAttribute>().Term;
                     var confidence = stream.GetAttribute<IConfidenceAttribute>().Confidence;
 
-                    writer.WriteLine("{0, -20} {1, -20} {2, -20} {3, -20}  {4}", source, spell, stem, spellAndStem, confidence.ToString("F2"));
-                    Console.WriteLine("{0, -20} {1, -20} {2, -20} {3, -20}  {4}", source, spell, stem, spellAndStem, confidence.ToString("F2"));
+                    writer.WriteLine("{0, -25} {1, -25} {2, -25} {3, -25}\t{4}", source, spell, stem, spellAndStem, confidence.ToString("F2"));
+                    //Console.WriteLine("{0, -25} {1, -25} {2, -25} {3, -25}\t{4}", source, spell, stem, spellAndStem, confidence.ToString("F2"));
                 }
             }
         }
@@ -101,9 +101,8 @@ namespace lucenenet
         static void SortOutput()
         {
             var outputFilePath = @"..\..\..\data\output.txt";
-            var oneCorrectionFilePath = @"..\..\..\data\oneCorrection.txt";
-            var twoCorrectionsFilePath = @"..\..\..\data\twoCorrections.txt";
-            var restFilePath = @"..\..\..\data\rest.txt";
+            var result95FilePath = @"..\..\..\data\result95.txt";
+            var rest95FilePath = @"..\..\..\data\rest95.txt";
             var resultFilePath = @"..\..\..\data\result.txt";
             var replacements = new Dictionary<string, int>();
 
@@ -126,9 +125,8 @@ namespace lucenenet
 
             var result = from entry in replacements orderby entry.Value descending select entry;
 
-            using (var oneCorrectionWriter = new StreamWriter(oneCorrectionFilePath))
-            using (var twoCorrectionsWriter = new StreamWriter(twoCorrectionsFilePath))
-            using (var restWriter = new StreamWriter(restFilePath))
+            using (var result95Writer = new StreamWriter(result95FilePath))
+            using (var rest95Writer = new StreamWriter(rest95FilePath))
             using (var resultWriter = new StreamWriter(resultFilePath))
             foreach (var entry in result)
             {
@@ -136,12 +134,10 @@ namespace lucenenet
 
                 var confidence = double.Parse(entry.Key.Substring(entry.Key.Length - 4, 4), CultureInfo.CurrentCulture);
                 
-                if (confidence == 1)
-                    oneCorrectionWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
-                else if (confidence == 0.99)
-                    twoCorrectionsWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
+                if (confidence >= 0.95)
+                    result95Writer.WriteLine("{0}\t{1}", entry.Key, entry.Value);
                 else
-                    restWriter.WriteLine("{0}\t{1}", entry.Key, entry.Value);
+                    rest95Writer.WriteLine("{0}\t{1}", entry.Key, entry.Value);
             }
         }
     }

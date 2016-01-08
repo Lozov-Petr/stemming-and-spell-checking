@@ -155,12 +155,7 @@ namespace lucenenet.V1
             sourceAttribute.Term = termAttribute.Term;
 
             if (!SpellChecker.Exist(sourceAttribute.Term))
-            {
-                if (sourceAttribute.Term == "зарание")
-                {
-
-                }
-                
+            {             
                 var res = SpellChecker.SuggestSimilar(sourceAttribute.Term, NumberOfSuggestions);
                 if (res.Length != 0) spellsAttribute.Terms = res;
             }
@@ -197,49 +192,48 @@ namespace lucenenet.V1
             if (spells == null || spells.Length == 0)
             {
                 spellAttribute.Term = source;
+                confAttribute.Confidence = 1;
                 return true;
             }
 
-            string bestSpell = null;
-            double bestConfidence = 0;
+            var spellsList = spells.ToList()
+                           .ConvertAll(spell => new Tuple<string, int, int>(spell, GetLevenshteinDistance(spell, source), GetCorpusDictElement(spell)));
 
-            foreach (var spell in spells)
-            {
-                var levenshteinValue = (int)Math.Round((1 - levenshteinDistance.GetDistance(source, spell)) * Math.Max(source.Length, spell.Length));
+            var sortedSpellsSpell = from spell in spellsList orderby spell.Item2, spell.Item3 descending select spell;
+            var bestSpell = sortedSpellsSpell.First();
 
-                if (levenshteinValue > 2 && bestSpell != null) break;
+            spellAttribute.Term = bestSpell.Item1;
 
-                if (levenshteinValue == 0)
-                {
-                    bestSpell = spell;
-                    bestConfidence = 1;
-                    break;
-                }
-
-                int sourceFreq, spellFreq;
-
-                if (!corpusDictionary.TryGetValue(source, out sourceFreq)) sourceFreq = 0;
-                if (!corpusDictionary.TryGetValue(spell, out spellFreq)) spellFreq = 0;
-
-                var ratio = (double)(1 + sourceFreq) / (double)(1 + spellFreq);
-
-                if (ratio >= 1) --ratio;
-                else ratio = Math.Max(-1.99, 1 - 1 / ratio);
-
-                var result = 1 / (1 + Math.Max(0, levenshteinValue + ratio));
-
-                if (result > bestConfidence)
-                {
-                    bestConfidence = result;
-                    bestSpell = spell;
-                    if (bestConfidence == 1 || levenshteinValue > 2) break;
-                }
+            if (bestSpell.Item2 == 0)
+            {          
+                confAttribute.Confidence = 1;
+                return true;
             }
 
-            spellAttribute.Term = bestSpell;
-            confAttribute.Confidence = bestConfidence;
+            int sourceFreq = GetCorpusDictElement(source), spellFreq = bestSpell.Item3;
 
+            var ratio = (double)(1 + sourceFreq) / (double)(1 + spellFreq);
+
+            if (ratio >= 1) ratio = 1 - 1 / ratio;
+            else ratio = ratio - 1;
+
+            var confidence = 1 / (1 + bestSpell.Item2 + ratio);
+
+            confAttribute.Confidence = confidence;
             return true;
+        }
+
+        private int GetLevenshteinDistance(string s1, string s2)
+        {
+            return (int)Math.Round((1 - levenshteinDistance.GetDistance(s1, s2)) * Math.Max(s1.Length, s2.Length));
+        }
+
+        private int GetCorpusDictElement(string s)
+        {
+            int res;
+
+            if (corpusDictionary.TryGetValue(s, out res)) return res;
+            else return 0;
         }
     }
 
